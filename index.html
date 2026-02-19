@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPS Duel - Offline Mode</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Syne:wght@700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --almost-black: #0a0a0a;
+            --black: #000000;
+            --white: #ffffff;
+            --happy-orange: #FF6B00;
+            --orange-hover: #e56000;
+            --dark-gray: #1a1a1a;
+            --neon-glow: 0 0 20px rgba(255, 107, 0, 0.5);
+        }
+
+        body {
+            background-color: var(--almost-black);
+            color: var(--white);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* --- STAGE LAYOUT --- */
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            font-family: 'Syne', sans-serif;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            letter-spacing: -1px;
+        }
+
+        .header span {
+            color: var(--happy-orange);
+        }
+
+        .arena {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px;
+            padding: 0 20px;
+            flex-grow: 1;
+            position: relative;
+        }
+
+        /* --- VIDEO CONTAINERS --- */
+        .player-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            width: 45%;
+            max-width: 500px;
+        }
+
+        .player-name {
+            font-family: 'Syne', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #888;
+        }
+
+        .player-name.active {
+            color: var(--white);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 14px;
+            padding: 4px;
+            /* Space for the moving glow */
+            background: var(--dark-gray);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* The Animated Glow */
+        .video-container.glow::before {
+            content: '';
+            position: absolute;
+            width: 150%;
+            height: 150%;
+            background: conic-gradient(from 0deg,
+                    transparent 0%,
+                    transparent 40%,
+                    var(--white) 50%,
+                    transparent 60%,
+                    transparent 100%);
+            animation: rotateGlow 3s linear infinite;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            padding: 2px;
+            background: var(--happy-orange);
+            /* The orange video border */
+            z-index: 1;
+            box-sizing: border-box;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            border-radius: 10px;
+            background: var(--dark-gray);
+            transform: scaleX(-1);
+            /* Mirror */
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Mimic computer video (Fake static/avatar) */
+        .computer-video {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #111, #222);
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            color: rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes rotateGlow {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- GAME UI CONTROLS --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            padding: 40px;
+            background: linear-gradient(to top, var(--almost-black) 40%, transparent);
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        .action-btn {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            font-size: 32px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            /* Bouncy transition */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .action-btn:hover {
+            border-color: var(--happy-orange);
+            background-color: rgba(255, 107, 0, 0.1);
+            transform: translateY(-10px) scale(1.1);
+            box-shadow: var(--neon-glow);
+        }
+
+        .action-btn.selected {
+            background-color: var(--happy-orange);
+            border-color: var(--happy-orange);
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(255, 107, 0, 0.6);
+        }
+
+        /* --- THE CLASH ANIMATION LAYER --- */
+        .clash-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .clash-layer.active {
+            opacity: 1;
+        }
+
+        .clash-icon {
+            font-size: 150px;
+            position: absolute;
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
+        }
+
+        .clash-left {
+            transform: translateX(-300px) scale(0.5) rotate(-45deg);
+            color: var(--white);
+        }
+
+        .clash-right {
+            transform: translateX(300px) scale(0.5) rotate(45deg);
+            color: var(--happy-orange);
+            /* Opponent's color */
+        }
+
+        /* Animation States injected by JS */
+        .clash-left.animate-in {
+            transform: translateX(-50px) scale(1) rotate(0deg);
+        }
+
+        .clash-right.animate-in {
+            transform: translateX(50px) scale(1) rotate(0deg);
+        }
+
+        /* WIN ANIMATIONS */
+        /* Rock smashes Scissors */
+        .anim-smash-winner {
+            animation: smashDown 0.5s forwards 0.5s;
+            z-index: 60;
+        }
+
+        .anim-smash-loser {
+            animation: getSmashed 0.5s forwards 0.5s;
+        }
+
+        @keyframes smashDown {
+            0% {
+                transform: translateX(-50px) scale(1) translateY(0);
+            }
+
+            50% {
+                transform: translateX(-20px) scale(1.2) translateY(-50px) rotate(-20deg);
+            }
+
+            100% {
+                transform: translateX(0) scale(1) translateY(50px) rotate(10deg);
+            }
+        }
+
+        @keyframes getSmashed {
+            0% {
+                transform: translateX(50px) scale(1) translateY(0);
+                opacity: 1;
+            }
+
+            49% {
+                transform: translateX(50px) scale(1) translateY(0);
+                opacity: 1;
+                filter: sepia(0);
+            }
+
+            50% {
+                transform: translateX(50px) scale(0.8) translateY(50px);
+                opacity: 0.5;
+                filter: sepia(1) hue-rotate(-50deg) saturate(5);
+            }
+
+            /* Flash red */
+            100% {
+                transform: translateX(50px) scale(0.2) translateY(100px) rotate(90deg);
+                opacity: 0;
+            }
+        }
+
+        /* Paper wraps Rock */
+        .anim-wrap-winner {
+            animation: wrapAround 0.8s forwards 0.5s;
+            z-index: 60;
+        }
+
+        .anim-wrap-loser {
+            animation: getWrapped 0.8s forwards 0.5s;
+        }
+
+        @keyframes wrapAround {
+            0% {
+                transform: translateX(-50px) scale(1);
+            }
+
+            50% {
+                transform: translateX(0) scale(1.5);
+            }
+
+            100% {
+                transform: translateX(0) scale(1.2);
+                filter: drop-shadow(0 0 30px var(--happy-orange));
+            }
+        }
+
+        @keyframes getWrapped {
+            0% {
+                transform: translateX(50px) scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translateX(0) scale(0.5);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: translateX(0) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* Scissors cuts Paper */
+        .anim-cut-winner {
+            animation: sliceThrough 0.6s forwards 0.5s;
+            z-index: 60;
+        }
+
+        .anim-cut-loser {
+            animation: getCut 0.6s forwards 0.5s;
+        }
+
+        @keyframes sliceThrough {
+            0% {
+                transform: translateX(-50px) scale(1) rotate(0deg);
+            }
+
+            30% {
+                transform: translateX(-80px) scale(1.2) rotate(-30deg);
+            }
+
+            100% {
+                transform: translateX(100px) scale(1) rotate(45deg);
+            }
+        }
+
+        @keyframes getCut {
+            0% {
+                transform: translateX(50px) scale(1);
+                clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+            }
+
+            50% {
+                transform: translateX(50px) scale(1);
+                clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateX(50px) scale(0.9);
+                clip-path: polygon(0 0, 100% 0, 0% 100%, 0% 100%);
+                opacity: 0;
+            }
+
+            /* Split diagonally */
+        }
+
+        /* Tie */
+        .anim-tie {
+            animation: bump 0.5s forwards 0.5s;
+        }
+
+        @keyframes bump {
+            0% {
+                transform: translateX(-50px) scale(1);
+            }
+
+            50% {
+                transform: translateX(0) scale(1.1);
+            }
+
+            100% {
+                transform: translateX(-50px) scale(1);
+            }
+        }
+
+
+        .result-banner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-family: 'Syne', sans-serif;
+            font-size: 5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            pointer-events: none;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+        }
+
+        .result-banner.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        .winner-text {
+            color: var(--happy-orange);
+        }
+
+        .loser-text {
+            color: #ff3333;
+        }
+
+        .tie-text {
+            color: var(--white);
+        }
+
+        /* Setup overlay */
+        .setup-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 10, 0.9);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-primary {
+            background-color: var(--happy-orange);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--orange-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--neon-glow);
+        }
+
+        /* --- RESPONSIVE DESIGN --- */
+        @media (max-width: 768px) {
+            .arena {
+                flex-direction: column;
+                gap: 20px;
+                padding: 10px;
+            }
+
+            .player-card {
+                width: 90%;
+            }
+
+            .player-name {
+                font-size: 1rem;
+                margin-bottom: -5px;
+                /* Tighter layout */
+            }
+
+            .video-container {
+                aspect-ratio: auto;
+                height: 30vh;
+                /* Fixed height ratio for mobile so they both fit */
+            }
+
+            video,
+            .computer-video {
+                object-fit: cover;
+            }
+
+            .controls {
+                padding: 15px;
+                gap: 15px;
+            }
+
+            .action-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 24px;
+            }
+
+            .clash-icon {
+                font-size: 90px;
+            }
+
+            .clash-left {
+                transform: translateX(-150px) scale(0.5) rotate(-45deg);
+            }
+
+            .clash-right {
+                transform: translateX(150px) scale(0.5) rotate(45deg);
+            }
+
+            .result-banner {
+                font-size: 3.5rem;
+            }
+
+            .setup-overlay h2 {
+                font-size: 2rem !important;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="setup-overlay" id="setupOverlay">
+        <h2 style="font-family: 'Syne', sans-serif; font-size: 2.5rem; margin-bottom: 10px;">Offline Duel Mode</h2>
+        <p style="color: #a0a0a0; margin-bottom: 30px;">Allow camera to play against the CPU</p>
+        <button class="btn-primary" id="startBtn">Enable Camera & Play</button>
+    </div>
+
+    <div class="header">
+        <h1>RPS<span>.</span> DUEL</h1>
+    </div>
+
+    <div class="arena">
+
+        <!-- Player 1 (You) -->
+        <div class="player-card">
+            <div class="player-name active">YOU</div>
+            <div class="video-container glow">
+                <div class="video-wrapper">
+                    <video id="localVideo" autoplay playsinline muted></video>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player 2 (Computer) -->
+        <div class="player-card">
+            <div class="player-name">CPU (Waiting)</div>
+            <div class="video-container glow" style="--happy-orange: #333;"> <!-- Dim orange for bot -->
+                <div class="video-wrapper">
+                    <div class="computer-video">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Animation Layer -->
+        <div class="clash-layer" id="clashLayer">
+            <!-- Icons injected via JS -->
+        </div>
+
+        <div class="result-banner" id="resultBanner">YOU WIN</div>
+
+    </div>
+
+    <div class="controls">
+        <button class="action-btn" data-choice="rock" title="Rock">
+            <i class="fa-regular fa-hand-back-fist"></i>
+        </button>
+        <button class="action-btn" data-choice="paper" title="Paper">
+            <i class="fa-regular fa-hand"></i>
+        </button>
+        <button class="action-btn" data-choice="scissors" title="Scissors">
+            <i class="fa-regular fa-hand-scissors"></i>
+        </button>
+    </div>
+
+    <script>
+        // Media Setup
+        const startBtn = document.getElementById('startBtn');
+        const setupOverlay = document.getElementById('setupOverlay');
+        const localVideo = document.getElementById('localVideo');
+        const cpuName = document.querySelector('.player-card:nth-child(2) .player-name');
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localVideo.srcObject = stream;
+                setupOverlay.style.display = 'none';
+                cpuName.textContent = 'CPU (Ready)';
+                cpuName.classList.add('active');
+            } catch (error) {
+                console.error('Error accessing media', error);
+                alert('Camera access required to play!');
+            }
+        });
+
+        // Game Logic Mapping
+        const choices = ['rock', 'paper', 'scissors'];
+        const iconClasses = {
+            'rock': 'fa-regular fa-hand-back-fist',
+            'paper': 'fa-regular fa-hand',
+            'scissors': 'fa-regular fa-hand-scissors'
+        };
+
+        const actionBtns = document.querySelectorAll('.action-btn');
+        const clashLayer = document.getElementById('clashLayer');
+        const resultBanner = document.getElementById('resultBanner');
+
+        let isAnimating = false;
+
+        actionBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isAnimating) return; // Prevent spamming
+
+                // Visual selection state
+                actionBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+
+                const playerChoice = btn.getAttribute('data-choice');
+                playRound(playerChoice);
+            });
+        });
+
+        function playRound(playerChoice) {
+            isAnimating = true;
+
+            // Generate CPU choice
+            const cpuChoice = choices[Math.floor(Math.random() * choices.length)];
+
+            // Determine winner
+            let result = '';
+            if (playerChoice === cpuChoice) result = 'tie';
+            else if (
+                (playerChoice === 'rock' && cpuChoice === 'scissors') ||
+                (playerChoice === 'paper' && cpuChoice === 'rock') ||
+                (playerChoice === 'scissors' && cpuChoice === 'paper')
+            ) result = 'win';
+            else result = 'lose';
+
+            animateClash(playerChoice, cpuChoice, result);
+        }
+
+        function animateClash(playerChoice, cpuChoice, result) {
+            // Reset layers
+            clashLayer.innerHTML = '';
+            clashLayer.classList.add('active');
+            resultBanner.className = 'result-banner';
+
+            // Create Icon Elements
+            const pIcon = document.createElement('i');
+            pIcon.className = `${iconClasses[playerChoice]} clash-icon clash-left`;
+
+            const cIcon = document.createElement('i');
+            cIcon.className = `${iconClasses[cpuChoice]} clash-icon clash-right`;
+
+            // Scissors icon on right needs flipping to look like it's pointing left
+            if (cpuChoice === 'scissors' || cpuChoice === 'paper') {
+                cIcon.style.transform = cIcon.style.transform + ' scaleX(-1)';
+            }
+
+            clashLayer.appendChild(pIcon);
+            clashLayer.appendChild(cIcon);
+
+            // Trigger slide in
+            setTimeout(() => {
+                pIcon.classList.add('animate-in');
+                cIcon.classList.add('animate-in');
+            }, 50);
+
+            // Trigger outcome animation after slide finishes
+            setTimeout(() => {
+                applyOutcomeAnimations(pIcon, cIcon, playerChoice, cpuChoice, result);
+            }, 600);
+
+            // Show result text and reset
+            setTimeout(() => {
+                showResultBanner(result);
+            }, 1200);
+
+            // Full reset
+            setTimeout(() => {
+                clashLayer.classList.remove('active');
+                resultBanner.classList.remove('show');
+                actionBtns.forEach(b => b.classList.remove('selected'));
+                isAnimating = false;
+            }, 3000);
+        }
+
+        function applyOutcomeAnimations(pIcon, cIcon, pChoice, cChoice, result) {
+            if (result === 'tie') {
+                pIcon.classList.add('anim-tie');
+
+                // Calculate reverse bump for right side
+                cIcon.style.animation = 'bumpReverse 0.5s forwards 0.5s';
+                const style = document.createElement('style');
+                style.innerHTML = `@keyframes bumpReverse { 0% { transform: translateX(50px) scale(1); } 50% { transform: translateX(0) scale(1.1); } 100% { transform: translateX(50px) scale(1); } }`;
+                document.head.appendChild(style);
+                return;
+            }
+
+            const winningChoice = result === 'win' ? pChoice : cChoice;
+            const winningIcon = result === 'win' ? pIcon : cIcon;
+            const losingIcon = result === 'win' ? cIcon : pIcon;
+
+            // Apply specific animations based on the winning weapon
+            if (winningChoice === 'rock') {
+                winningIcon.classList.add('anim-smash-winner');
+                losingIcon.classList.add('anim-smash-loser');
+                // Adjust smash direction logic if CPU wins (mirror the animation)
+                if (result === 'lose') {
+                    winningIcon.style.animationName = 'smashDownRight';
+                    const style = document.createElement('style');
+                    style.innerHTML = `@keyframes smashDownRight { 0% { transform: translateX(50px) scale(1) translateY(0); } 50% { transform: translateX(20px) scale(1.2) translateY(-50px) rotate(20deg); } 100% { transform: translateX(0) scale(1) translateY(50px) rotate(-10deg); } }`;
+                    document.head.appendChild(style);
+
+                    losingIcon.style.animationName = 'getSmashedLeft';
+                    style.innerHTML += `@keyframes getSmashedLeft { 0% { transform: translateX(-50px) scale(1) translateY(0); opacity:1;} 49% {transform: translateX(-50px) scale(1) translateY(0); opacity:1; filter: sepia(0);} 50% { transform: translateX(-50px) scale(0.8) translateY(50px); opacity: 0.5; filter: sepia(1) hue-rotate(-50deg) saturate(5); } 100% { transform: translateX(-50px) scale(0.2) translateY(100px) rotate(-90deg); opacity: 0; } }`;
+                }
+
+            } else if (winningChoice === 'paper') {
+                winningIcon.classList.add('anim-wrap-winner');
+                losingIcon.classList.add('anim-wrap-loser');
+                if (result === 'lose') {
+                    winningIcon.style.animationName = 'wrapAroundRight';
+                    const style = document.createElement('style');
+                    style.innerHTML = `@keyframes wrapAroundRight { 0% { transform: translateX(50px) scale(1); } 50% { transform: translateX(0) scale(1.5); } 100% { transform: translateX(0) scale(1.2); filter: drop-shadow(0 0 30px #ff3333); } }`;
+                    document.head.appendChild(style);
+
+                    losingIcon.style.animationName = 'getWrappedLeft';
+                    style.innerHTML += `@keyframes getWrappedLeft { 0% { transform: translateX(-50px) scale(1); opacity: 1; } 50% { transform: translateX(0) scale(0.5); opacity: 0.5; } 100% { transform: translateX(0) scale(0); opacity: 0; } }`;
+                }
+            } else if (winningChoice === 'scissors') {
+                winningIcon.classList.add('anim-cut-winner');
+                losingIcon.classList.add('anim-cut-loser');
+                if (result === 'lose') {
+                    winningIcon.style.animationName = 'sliceThroughRight';
+                    const style = document.createElement('style');
+                    style.innerHTML = `@keyframes sliceThroughRight { 0% { transform: translateX(50px) scale(1) rotate(0deg); } 30% { transform: translateX(80px) scale(1.2) rotate(30deg); } 100% { transform: translateX(-100px) scale(1) rotate(-45deg); } }`;
+                    document.head.appendChild(style);
+
+                    losingIcon.style.animationName = 'getCutLeft';
+                    style.innerHTML += `@keyframes getCutLeft { 0% { transform: translateX(-50px) scale(1); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); } 50% { transform: translateX(-50px) scale(1); clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); opacity: 1; } 100% { transform: translateX(-50px) scale(0.9); clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); opacity: 0; } }`;
+                }
+            }
+        }
+
+        function showResultBanner(result) {
+            if (result === 'win') {
+                resultBanner.textContent = 'YOU WIN';
+                resultBanner.classList.add('winner-text');
+            } else if (result == 'lose') {
+                resultBanner.textContent = 'YOU LOSE';
+                resultBanner.classList.add('loser-text');
+            } else {
+                resultBanner.textContent = 'TIE';
+                resultBanner.classList.add('tie-text');
+            }
+            resultBanner.classList.add('show');
+        }
+
+    </script>
+</body>
+
+</html>
