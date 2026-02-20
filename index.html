@@ -605,14 +605,21 @@
         const setupOverlay = document.getElementById('setupOverlay');
         const localVideo = document.getElementById('localVideo');
         const cpuName = document.querySelector('.player-card:nth-child(2) .player-name');
+        const playerName = document.querySelector('.player-card:nth-child(1) .player-name');
+
+        let isAnimating = false;
+        let playerScore = 0;
+        let cpuScore = 0;
+        let gameEnded = false;
 
         startBtn.addEventListener('click', async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 localVideo.srcObject = stream;
                 setupOverlay.style.display = 'none';
-                cpuName.textContent = 'CPU (Ready)';
+                cpuName.innerHTML = 'CPU (Ready) <span id="cpuScoreDisplay" style="color: var(--happy-orange); margin-left:10px;">(0)</span>';
                 cpuName.classList.add('active');
+                playerName.innerHTML = 'YOU <span id="playerScoreDisplay" style="color: var(--happy-orange); margin-left:10px;">(0)</span>';
             } catch (error) {
                 console.error('Error accessing media', error);
                 alert('Camera access required to play!');
@@ -631,11 +638,9 @@
         const clashLayer = document.getElementById('clashLayer');
         const resultBanner = document.getElementById('resultBanner');
 
-        let isAnimating = false;
-
         actionBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                if (isAnimating) return; // Prevent spamming
+                if (isAnimating || gameEnded) return; // Prevent spamming
 
                 // Visual selection state
                 actionBtns.forEach(b => b.classList.remove('selected'));
@@ -697,18 +702,10 @@
                 applyOutcomeAnimations(pIcon, cIcon, playerChoice, cpuChoice, result);
             }, 600);
 
-            // Show result text and reset
+            // Show result text and score
             setTimeout(() => {
-                showResultBanner(result);
+                showRoundResult(result);
             }, 1200);
-
-            // Full reset
-            setTimeout(() => {
-                clashLayer.classList.remove('active');
-                resultBanner.classList.remove('show');
-                actionBtns.forEach(b => b.classList.remove('selected'));
-                isAnimating = false;
-            }, 3000);
         }
 
         function applyOutcomeAnimations(pIcon, cIcon, pChoice, cChoice, result) {
@@ -769,18 +766,73 @@
             }
         }
 
-        function showResultBanner(result) {
+        function showRoundResult(result) {
+            let bannerText = '';
+            let bannerClass = '';
+
             if (result === 'win') {
-                resultBanner.textContent = 'YOU WIN';
-                resultBanner.classList.add('winner-text');
-            } else if (result == 'lose') {
-                resultBanner.textContent = 'YOU LOSE';
-                resultBanner.classList.add('loser-text');
+                playerScore++;
+                document.getElementById('playerScoreDisplay').innerText = `(${playerScore})`;
+                bannerText = 'ROUND WON';
+                bannerClass = 'winner-text';
+            } else if (result === 'lose') {
+                cpuScore++;
+                document.getElementById('cpuScoreDisplay').innerText = `(${cpuScore})`;
+                bannerText = 'ROUND LOST';
+                bannerClass = 'loser-text';
             } else {
-                resultBanner.textContent = 'TIE';
-                resultBanner.classList.add('tie-text');
+                bannerText = 'TIE';
+                bannerClass = 'tie-text';
             }
-            resultBanner.classList.add('show');
+
+            resultBanner.textContent = bannerText;
+            resultBanner.className = `result-banner show ${bannerClass}`;
+
+            if (playerScore >= 2 || cpuScore >= 2) {
+                gameEnded = true;
+                setTimeout(() => {
+                    announceMatchWinner();
+                }, 2000); // 2 seconds after round win
+            } else {
+                // Return to game state
+                setTimeout(() => {
+                    clashLayer.classList.remove('active');
+                    resultBanner.classList.remove('show');
+                    actionBtns.forEach(b => b.classList.remove('selected'));
+                    isAnimating = false;
+                }, 1800); // Wait 1.8s displaying the banner before hiding
+            }
+        }
+
+        function announceMatchWinner() {
+            clashLayer.classList.remove('active');
+
+            if (playerScore >= 2) {
+                resultBanner.textContent = 'MATCH WON!';
+                resultBanner.className = 'result-banner show winner-text';
+            } else {
+                resultBanner.textContent = 'MATCH LOST!';
+                resultBanner.className = 'result-banner show loser-text';
+            }
+
+            // Pop effect
+            resultBanner.style.transform = 'translate(-50%, -50%) scale(1.1)';
+            resultBanner.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+
+            // Auto restart after 4 seconds
+            setTimeout(() => {
+                playerScore = 0;
+                cpuScore = 0;
+                document.getElementById('playerScoreDisplay').innerText = `(0)`;
+                document.getElementById('cpuScoreDisplay').innerText = `(0)`;
+
+                resultBanner.classList.remove('show');
+                resultBanner.style.transform = '';
+
+                actionBtns.forEach(b => b.classList.remove('selected'));
+                isAnimating = false;
+                gameEnded = false;
+            }, 4000);
         }
 
     </script>
