@@ -89,39 +89,57 @@
             width: 100%;
             aspect-ratio: 16 / 9;
             border-radius: 14px;
-            padding: 4px;
-            /* Space for the moving glow */
-            background: var(--dark-gray);
+            padding: 6px;
+            /* Orange base border */
+            background: var(--happy-orange);
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 20px rgba(255, 107, 0, 0.2), 0 10px 40px rgba(0, 0, 0, 0.5);
         }
 
         /* The Animated Glow */
-        .video-container.glow::before {
+        .video-container.glow::before,
+        .video-container.glow::after {
             content: '';
             position: absolute;
-            width: 150%;
-            height: 150%;
+            width: 200%;
+            height: 200%;
+            animation: rotateGlow 3s linear infinite;
+            z-index: 0;
+        }
+
+        .video-container.glow::before {
+            background: conic-gradient(from 0deg,
+                    transparent 0%,
+                    transparent 35%,
+                    rgba(255, 255, 255, 0.3) 42%,
+                    #ffffff 50%,
+                    rgba(255, 255, 255, 0.3) 58%,
+                    transparent 65%,
+                    transparent 100%);
+        }
+
+        .video-container.glow::after {
             background: conic-gradient(from 0deg,
                     transparent 0%,
                     transparent 40%,
-                    var(--white) 50%,
+                    rgba(255, 255, 255, 0.7) 48%,
+                    #ffffff 50%,
+                    rgba(255, 255, 255, 0.7) 52%,
                     transparent 60%,
                     transparent 100%);
-            animation: rotateGlow 3s linear infinite;
+            filter: blur(12px);
         }
 
         .video-wrapper {
             position: relative;
             width: 100%;
             height: 100%;
-            border-radius: 12px;
-            padding: 2px;
-            background: var(--happy-orange);
-            /* The orange video border */
+            border-radius: 10px;
+            padding: 0;
+            background: var(--almost-black);
             z-index: 1;
             box-sizing: border-box;
         }
@@ -417,7 +435,7 @@
             left: 50%;
             transform: translate(-50%, -50%) scale(0);
             font-family: 'Syne', sans-serif;
-            font-size: 5rem;
+            font-size: clamp(2rem, 10vw, 5rem);
             font-weight: 800;
             text-transform: uppercase;
             text-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
@@ -425,6 +443,10 @@
             pointer-events: none;
             transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             opacity: 0;
+            text-align: center;
+            width: 100%;
+            padding: 0 10px;
+            box-sizing: border-box;
         }
 
         .result-banner.show {
@@ -531,7 +553,7 @@
             }
 
             .result-banner {
-                font-size: 3.5rem;
+                /* Addressed using clamp() above, kept for any other overrides if needed */
             }
 
             .setup-overlay h2 {
